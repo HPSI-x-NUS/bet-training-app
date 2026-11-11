@@ -8,12 +8,16 @@ import {
     type StroopTrial,
 } from "./logic";
 
-import type { StroopTrialResult } from "../types";
+import type {
+    StroopTrialResult,
+    SessionMetrics,
+} from "../types";
 
 import {
     createStroopTrialResult,
     validateStroopResults,
 } from "./results";
+import { calculateStroopMetrics } from "./statistics";
 
 type GamePhase = "instructions" | "playing";
 
@@ -49,6 +53,10 @@ export default function StroopGame() {
     const [trialResults, setTrialResults] =
         useState<StroopTrialResult[]>([]);
 
+    // Preserve cognitive performance metrics after session completion.
+    const [sessionMetrics, setSessionMetrics] =
+        useState<SessionMetrics | null>(null);
+
     // Track reaction time without causing re-renders.
     const trialStartTime = useRef<number>(0);
 
@@ -75,7 +83,7 @@ export default function StroopGame() {
     // Current trial being displayed.
     const currentTrial = trials[currentTrialIndex];
 
-    // Validate completed sessions once all trial results are recorded.
+    // Validate and calculate metrics when all trials are recorded.
     useEffect(() => {
         if (
             phase !== "playing" ||
@@ -92,16 +100,17 @@ export default function StroopGame() {
 
         if (!isValid) {
             console.error(
-                "Stroop session contains missing or duplicate trial results.",
+                "Stroop session contains invalid trial results.",
                 trialResults
             );
-        } else {
-            console.info(
-                "Stroop session validated successfully:",
-                trialResults.length,
-                "unique trials"
-            );
+            return;
         }
+
+        const metrics = calculateStroopMetrics(trialResults);
+
+        setSessionMetrics(metrics);
+
+        console.info("Stroop session metrics:", metrics);
     }, [phase, trials.length, trialResults]);
 
     /**
@@ -281,6 +290,7 @@ export default function StroopGame() {
         setFeedback(null);
         setReactionTimes([]);
         setTrialResults([]);
+        setSessionMetrics(null);
 
         // Keep responses disabled until the first stimulus is ready.
         trialReady.current = false;
