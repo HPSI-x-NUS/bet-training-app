@@ -19,7 +19,9 @@ import {
 } from "./results";
 import { calculateStroopMetrics } from "./statistics";
 
-type GamePhase = "instructions" | "playing";
+import StroopResults from "./StroopResults";
+
+type GamePhase = "instructions" | "playing" | "results";
 
 const colorStyles = {
     red: "#EF4444",
@@ -80,6 +82,9 @@ export default function StroopGame() {
     // Reference the stimulus element for precise visibility control.
     const stimulusRef = useRef<HTMLParagraphElement | null>(null);
 
+    // Tracks whether the completed session passed validation.
+    const sessionValidated = useRef(false);
+
     // Current trial being displayed.
     const currentTrial = trials[currentTrialIndex];
 
@@ -109,8 +114,13 @@ export default function StroopGame() {
         const metrics = calculateStroopMetrics(trialResults);
 
         setSessionMetrics(metrics);
+        sessionValidated.current = true;
 
         console.info("Stroop session metrics:", metrics);
+
+        // Transition after the final trial's feedback interval.
+        // The pending feedback timer will be cancelled by the
+        // results-phase transition below.
     }, [phase, trials.length, trialResults]);
 
     /**
@@ -136,8 +146,15 @@ export default function StroopGame() {
             if (currentTrialIndex + 1 < trials.length) {
                 setCurrentTrialIndex((previous) => previous + 1);
             } else {
-                // Temporary until the results screen is implemented.
-                setPhase("instructions");
+                // Only show completion after validating all trial results.
+                if (sessionValidated.current) {
+                    setPhase("results");
+                } else {
+                    console.error(
+                        "Cannot complete Stroop session: results are not validated."
+                    );
+                    setPhase("instructions");
+                }
             }
         }, 500);
     }
@@ -291,6 +308,7 @@ export default function StroopGame() {
         setReactionTimes([]);
         setTrialResults([]);
         setSessionMetrics(null);
+        sessionValidated.current = false;
 
         // Keep responses disabled until the first stimulus is ready.
         trialReady.current = false;
@@ -320,6 +338,13 @@ export default function StroopGame() {
 
         // Reject responses received after the deadline.
         if (reactionTime >= defaultStroopConfig.responseWindowMs) {
+            // Close the response window before recording the timeout.
+            responseLocked.current = true;
+            trialReady.current = false;
+
+            if (stimulusRef.current) {
+                stimulusRef.current.style.visibility = "hidden";
+            }
             const trialResult = createStroopTrialResult({
                 trial: currentTrial,
                 response: null,
@@ -525,6 +550,13 @@ export default function StroopGame() {
                         Score: {score} points
                     </p>
                 </div>
+            )}
+            {phase === "results" && sessionMetrics && (
+                <StroopResults
+                    metrics={sessionMetrics}
+                    score={score}
+                    onPlayAgain={startGame}
+                />
             )}
         </main>
     );
