@@ -8,6 +8,13 @@ import {
     type StroopTrial,
 } from "./logic";
 
+import type { StroopTrialResult } from "../types";
+
+import {
+    createStroopTrialResult,
+    validateStroopResults,
+} from "./results";
+
 type GamePhase = "instructions" | "playing";
 
 const colorStyles = {
@@ -38,6 +45,10 @@ export default function StroopGame() {
     const [reactionTimes, setReactionTimes] =
         useState<number[]>([]);
 
+    // Store complete cognitive performance data for each trial.
+    const [trialResults, setTrialResults] =
+        useState<StroopTrialResult[]>([]);
+
     // Track reaction time without causing re-renders.
     const trialStartTime = useRef<number>(0);
 
@@ -63,6 +74,35 @@ export default function StroopGame() {
 
     // Current trial being displayed.
     const currentTrial = trials[currentTrialIndex];
+
+    // Validate completed sessions once all trial results are recorded.
+    useEffect(() => {
+        if (
+            phase !== "playing" ||
+            trials.length === 0 ||
+            trialResults.length !== trials.length
+        ) {
+            return;
+        }
+
+        const isValid = validateStroopResults(
+            trialResults,
+            trials.length
+        );
+
+        if (!isValid) {
+            console.error(
+                "Stroop session contains missing or duplicate trial results.",
+                trialResults
+            );
+        } else {
+            console.info(
+                "Stroop session validated successfully:",
+                trialResults.length,
+                "unique trials"
+            );
+        }
+    }, [phase, trials.length, trialResults]);
 
     /**
      * Advance to the next trial after feedback.
@@ -156,6 +196,20 @@ export default function StroopGame() {
                     if (stimulusElement) {
                         stimulusElement.style.visibility = "hidden";
                     }
+
+                    // Record an unanswered trial as a timeout.
+                    const trialResult = createStroopTrialResult({
+                        trial: currentTrial,
+                        response: null,
+                        stimulusOnsetMs: trialStartTime.current,
+                        responseTimestampMs: null,
+                    });
+
+                    setTrialResults((previous) => [
+                        ...previous,
+                        trialResult,
+                    ]);
+
                     setFeedback("timeout");
 
                     // Advance using the shared transition function.
@@ -226,6 +280,7 @@ export default function StroopGame() {
         setScore(0);
         setFeedback(null);
         setReactionTimes([]);
+        setTrialResults([]);
 
         // Keep responses disabled until the first stimulus is ready.
         trialReady.current = false;
@@ -255,11 +310,17 @@ export default function StroopGame() {
 
         // Reject responses received after the deadline.
         if (reactionTime >= defaultStroopConfig.responseWindowMs) {
-            responseLocked.current = true;
-            trialReady.current = false;
-            if (stimulusRef.current) {
-                stimulusRef.current.style.visibility = "hidden";
-            }
+            const trialResult = createStroopTrialResult({
+                trial: currentTrial,
+                response: null,
+                stimulusOnsetMs: trialStartTime.current,
+                responseTimestampMs: null,
+            });
+
+            setTrialResults((previous) => [
+                ...previous,
+                trialResult,
+            ]);
 
             // Cancel the pending timeout callback.
             if (responseTimer.current !== null) {
@@ -297,6 +358,20 @@ export default function StroopGame() {
         // Compare the selected colour against the ink colour.
         const isCorrect =
             selectedColor === currentTrial.correctResponse;
+
+        // Record the complete result for this trial.
+        // Record the complete result for this trial.
+        const trialResult = createStroopTrialResult({
+            trial: currentTrial,
+            response: selectedColor,
+            stimulusOnsetMs: trialStartTime.current,
+            responseTimestampMs: trialStartTime.current + reactionTime,
+        });
+
+        setTrialResults((previous) => [
+            ...previous,
+            trialResult,
+        ]);
 
         // Record reaction time.
         setReactionTimes((previous) => [
