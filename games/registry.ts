@@ -27,7 +27,7 @@ export const gameRegistry = {
       "Challenge your attention by identifying ink colours while ignoring conflicting words.",
     category: "Interference Control",
     durationMinutes: 3,
-    available: false,
+    available: true,
   },
   "n-back": {
     id: "n-back",
