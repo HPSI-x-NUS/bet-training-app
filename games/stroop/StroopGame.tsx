@@ -51,11 +51,15 @@ export default function StroopGame() {
     const stimulusTimer = useRef<number | null>(null);
     const responseTimer = useRef<number | null>(null);
 
+    // Track pending animation frames for stimulus onset.
+    const onsetFrame = useRef<number | null>(null);
+    const presentationFrame = useRef<number | null>(null);
+
     // Controls the delay between feedback and the next trial.
     const feedbackTimer = useRef<number | null>(null);
 
-    // Controls whether the word is visible.
-    const [stimulusVisible, setStimulusVisible] = useState(true);
+    // Reference the stimulus element for precise visibility control.
+    const stimulusRef = useRef<HTMLParagraphElement | null>(null);
 
     // Current trial being displayed.
     const currentTrial = trials[currentTrialIndex];
@@ -102,45 +106,94 @@ export default function StroopGame() {
             return;
         }
 
-        // Prepare the newly displayed stimulus.
-        setStimulusVisible(true);
+        // Capture the stimulus element for this trial.
+        const stimulusElement = stimulusRef.current;
 
-        // Record approximate stimulus onset after React commits.
-        trialStartTime.current = performance.now();
+        // Keep responses locked until stimulus onset is scheduled.
+        trialReady.current = false;
+        responseLocked.current = true;
 
-        // Allow responses for this trial.
-        responseLocked.current = false;
-        trialReady.current = true;
+        // Keep the stimulus hidden while preparing the new trial.
+        if (stimulusElement) {
+            stimulusElement.style.visibility = "hidden";
+        }
 
-        // Hide the stimulus after its configured duration.
-        stimulusTimer.current = window.setTimeout(() => {
-            setStimulusVisible(false);
-        }, defaultStroopConfig.stimulusDurationMs);
+        // Schedule stimulus presentation through the browser's
+        // animation-frame cycle.
+        onsetFrame.current = window.requestAnimationFrame(() => {
+            presentationFrame.current = window.requestAnimationFrame(() => {
+                // Reveal the stimulus directly through the DOM.
+                if (!stimulusElement) {
+                    return;
+                }
 
-        // Automatically time out unanswered trials.
-        responseTimer.current = window.setTimeout(() => {
-            if (responseLocked.current) {
-                return;
-            }
+                stimulusElement.style.visibility = "visible";
 
-            responseLocked.current = true;
-            setStimulusVisible(false);
-            setFeedback("timeout");
+                // Record approximate stimulus onset immediately after
+                // updating the element's visibility.
+                trialStartTime.current = performance.now();
 
-            // Advance using the shared transition function.
-            scheduleNextTrial();
-        }, defaultStroopConfig.responseWindowMs);
+                // Allow responses for this trial.
+                responseLocked.current = false;
+                trialReady.current = true;
+
+                // Hide the stimulus after its configured duration.
+                stimulusTimer.current = window.setTimeout(() => {
+                    if (stimulusElement) {
+                        stimulusElement.style.visibility = "hidden";
+                    }
+                }, defaultStroopConfig.stimulusDurationMs);
+
+                // Automatically time out unanswered trials.
+                responseTimer.current = window.setTimeout(() => {
+                    if (responseLocked.current) {
+                        return;
+                    }
+
+                    // Close the response window when the deadline expires.
+                    responseLocked.current = true;
+                    trialReady.current = false;
+                    if (stimulusElement) {
+                        stimulusElement.style.visibility = "hidden";
+                    }
+                    setFeedback("timeout");
+
+                    // Advance using the shared transition function.
+                    scheduleNextTrial();
+                }, defaultStroopConfig.responseWindowMs);
+            });
+        });
 
         return () => {
-            // This trial is no longer accepting responses.
+            // Prevent responses after this trial ends.
             trialReady.current = false;
+            responseLocked.current = true;
 
+            // Hide the stimulus when the trial is cleaned up.
+            if (stimulusElement) {
+                stimulusElement.style.visibility = "hidden";
+            }
+
+            // Cancel pending stimulus presentation frames.
+            if (onsetFrame.current !== null) {
+                window.cancelAnimationFrame(onsetFrame.current);
+                onsetFrame.current = null;
+            }
+
+            if (presentationFrame.current !== null) {
+                window.cancelAnimationFrame(presentationFrame.current);
+                presentationFrame.current = null;
+            }
+
+            // Cancel stimulus visibility and response timers.
             if (stimulusTimer.current !== null) {
                 window.clearTimeout(stimulusTimer.current);
+                stimulusTimer.current = null;
             }
 
             if (responseTimer.current !== null) {
                 window.clearTimeout(responseTimer.current);
+                responseTimer.current = null;
             }
         };
     }, [phase, currentTrial, currentTrialIndex, trials.length]);
@@ -155,6 +208,12 @@ export default function StroopGame() {
     }, []);
 
     function startGame() {
+        // Cancel any pending feedback transition from a previous session.
+        if (feedbackTimer.current !== null) {
+            window.clearTimeout(feedbackTimer.current);
+            feedbackTimer.current = null;
+        }
+
         // Generate a new randomized sequence of trials.
         const generatedTrials =
             generateStroopTrials(defaultStroopConfig);
@@ -168,8 +227,9 @@ export default function StroopGame() {
         setFeedback(null);
         setReactionTimes([]);
 
-        // Allow responses for the new session.
-        responseLocked.current = false;
+        // Keep responses disabled until the first stimulus is ready.
+        trialReady.current = false;
+        responseLocked.current = true;
 
         // Display the gameplay screen.
         setPhase("playing");
@@ -196,7 +256,10 @@ export default function StroopGame() {
         // Reject responses received after the deadline.
         if (reactionTime >= defaultStroopConfig.responseWindowMs) {
             responseLocked.current = true;
-            setStimulusVisible(false);
+            trialReady.current = false;
+            if (stimulusRef.current) {
+                stimulusRef.current.style.visibility = "hidden";
+            }
 
             // Cancel the pending timeout callback.
             if (responseTimer.current !== null) {
@@ -213,11 +276,14 @@ export default function StroopGame() {
         }
 
 
-        // Prevent multiple responses to the same trial.
+        // Close the response window immediately.
         responseLocked.current = true;
+        trialReady.current = false;
 
         // Hide the stimulus once a response has been recorded.
-        setStimulusVisible(false);
+        if (stimulusRef.current) {
+            stimulusRef.current.style.visibility = "hidden";
+        }
 
         // Stop the trial timers once a response is recorded.
         if (stimulusTimer.current !== null) {
@@ -324,10 +390,10 @@ export default function StroopGame() {
                         </p>
 
                         <p
-                            className="text-6xl font-extrabold"
+                            ref={stimulusRef}
+                            className="invisible text-6xl font-extrabold"
                             style={{
                                 color: colorStyles[currentTrial.inkColor],
-                                visibility: stimulusVisible ? "visible" : "hidden",
                             }}
                         >
                             {currentTrial.word.toUpperCase()}
