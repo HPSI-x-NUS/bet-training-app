@@ -1,13 +1,17 @@
-
-import { Flame, Zap, Trophy } from "lucide-react";
-import { StatsCard } from "@/components/athlete/stats-card";
-import { mockAthlete } from "@/lib/mock-data";
-import { DailyGoal } from "@/components/athlete/daily-goal";
+import { Target, Zap } from "lucide-react";
 import Link from "next/link";
+
+import { StatsCard } from "@/components/athlete/stats-card";
+import { DailyGoal } from "@/components/athlete/daily-goal";
 import { GameCard } from "@/components/athlete/game-card";
+import {
+  getAthleteDashboardData,
+} from "@/lib/athlete-dashboard";
 import { mockGames } from "@/lib/mock-data";
 
-export default function AthleteDashboard() {
+export default async function AthleteDashboard() {
+  const dashboard = await getAthleteDashboardData();
+
   return (
     <section className="mx-auto max-w-6xl p-6 md:p-10">
       <div className="mb-8">
@@ -16,7 +20,7 @@ export default function AthleteDashboard() {
         </p>
 
         <h1 className="text-3xl font-bold text-slate-900">
-          Welcome back, {mockAthlete.name}!
+          Welcome back!
         </h1>
 
         <p className="mt-2 text-slate-500">
@@ -26,34 +30,33 @@ export default function AthleteDashboard() {
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <StatsCard
-          title="Current Streak"
-          value={`${mockAthlete.streak} days`}
-          icon={Flame}
-          color="orange"
-        />
-
-        <StatsCard
           title="Total XP"
-          value={`${mockAthlete.xp} XP`}
+          value={`${dashboard.totalXp} XP`}
           icon={Zap}
           color="blue"
         />
 
         <StatsCard
-          title="Current Level"
-          value={mockAthlete.level}
-          icon={Trophy}
+          title="Sessions Today"
+          value={dashboard.gamesCompletedToday}
+          icon={Target}
+          color="orange"
+        />
+
+        <StatsCard
+          title="Daily Goal"
+          value={`${dashboard.dailyGoal} sessions`}
+          icon={Target}
           color="purple"
         />
       </div>
 
       <div className="mt-8">
         <DailyGoal
-            completed={mockAthlete.gamesCompletedToday}
-            goal={mockAthlete.dailyGoal}
+          completed={dashboard.gamesCompletedToday}
+          goal={dashboard.dailyGoal}
         />
       </div>
-
 
       <div className="mt-10">
         <div className="mb-5 flex items-center justify-between gap-4">
@@ -61,6 +64,7 @@ export default function AthleteDashboard() {
             <h2 className="text-2xl font-bold text-slate-900">
               Cognitive Games
             </h2>
+
             <p className="mt-1 text-sm text-slate-500">
               Challenge yourself with cognitive training tasks.
             </p>
@@ -77,9 +81,10 @@ export default function AthleteDashboard() {
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
           {mockGames.slice(0, 2).map((game) => (
             <GameCard key={game.id} {...game} />
-        ))}
+          ))}
         </div>
       </div>
     </section>
   );
 }
+
