@@ -1,4 +1,4 @@
-import { Target, Zap } from "lucide-react";
+import { Flame, Target, Zap } from "lucide-react";
 import Link from "next/link";
 
 import { StatsCard } from "@/components/athlete/stats-card";
@@ -28,7 +28,7 @@ export default async function AthleteDashboard() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatsCard
           title="Total XP"
           value={`${dashboard.totalXp} XP`}
@@ -37,17 +37,26 @@ export default async function AthleteDashboard() {
         />
 
         <StatsCard
+          title="Current Streak"
+          value={`${dashboard.currentStreak} ${
+            dashboard.currentStreak === 1 ? "day" : "days"
+          }`}
+          icon={Flame}
+          color="orange"
+        />
+
+        <StatsCard
           title="Sessions Today"
           value={dashboard.gamesCompletedToday}
           icon={Target}
-          color="orange"
+          color="purple"
         />
 
         <StatsCard
           title="Daily Goal"
           value={`${dashboard.dailyGoal} sessions`}
           icon={Target}
-          color="purple"
+          color="blue"
         />
       </div>
 
