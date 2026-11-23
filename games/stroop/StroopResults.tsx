@@ -14,12 +14,18 @@ import type { SessionMetrics } from "../types";
 interface StroopResultsProps {
     metrics: SessionMetrics;
     score: number;
+    saveStatus: "idle" | "saving" | "saved" | "error";
+    saveError: string | null;
+    onRetrySave: () => void;
     onPlayAgain: () => void;
 }
 
 export default function StroopResults({
     metrics,
     score,
+    saveStatus,
+    saveError,
+    onRetrySave,
     onPlayAgain,
 }: StroopResultsProps) {
     const additional = metrics.additionalMetrics;
@@ -138,11 +144,46 @@ export default function StroopResults({
                 </p>
             </div>
 
+            <div
+                aria-live="polite"
+                className="rounded-xl border bg-white p-4 text-sm"
+            >
+                {saveStatus === "saving" && (
+                    <p className="text-slate-600">
+                        Saving your training session…
+                    </p>
+                )}
+
+                {saveStatus === "saved" && (
+                    <p className="font-medium text-green-700">
+                        Training session saved successfully.
+                    </p>
+                )}
+
+                {saveStatus === "error" && (
+                    <div className="space-y-3">
+                        <p className="text-red-600">
+                            Your results are still visible, but they could not
+                            be saved. {saveError}
+                        </p>
+
+                        <button
+                            type="button"
+                            onClick={onRetrySave}
+                            className="rounded-lg border border-red-300 px-4 py-2 font-semibold text-red-700 hover:bg-red-50"
+                        >
+                            Retry Saving
+                        </button>
+                    </div>
+                )}
+            </div>
+
             <div className="grid gap-3 sm:grid-cols-2">
                 <button
                     type="button"
                     onClick={onPlayAgain}
-                    className="flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white hover:bg-blue-700"
+                    disabled={saveStatus === "saving"}
+                    className="flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                     <RotateCcw className="h-5 w-5" />
                     Play Again

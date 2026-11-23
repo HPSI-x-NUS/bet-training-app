@@ -1,6 +1,12 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import {
+    useCallback,
+    useEffect,
+    useLayoutEffect,
+    useRef,
+    useState,
+} from "react";
 
 import { defaultStroopConfig } from "./config";
 import {
@@ -21,7 +27,15 @@ import { calculateStroopMetrics } from "./statistics";
 
 import StroopResults from "./StroopResults";
 
+import { submitStroopSession } from "@/lib/cognitive-sessions";
+
 type GamePhase = "instructions" | "playing" | "results";
+
+type SessionSaveStatus =
+    | "idle"
+    | "saving"
+    | "saved"
+    | "error";
 
 const colorStyles = {
     red: "#EF4444",
@@ -59,6 +73,13 @@ export default function StroopGame() {
     const [sessionMetrics, setSessionMetrics] =
         useState<SessionMetrics | null>(null);
 
+    // Persistence state is separate from cognitive performance data.
+    const [saveStatus, setSaveStatus] =
+        useState<SessionSaveStatus>("idle");
+
+    const [saveError, setSaveError] =
+        useState<string | null>(null);
+
     // Track reaction time without causing re-renders.
     const trialStartTime = useRef<number>(0);
 
@@ -84,6 +105,13 @@ export default function StroopGame() {
 
     // Tracks whether the completed session passed validation.
     const sessionValidated = useRef(false);
+
+    // ISO timestamps are used for persistent session metadata.
+    const sessionStartedAt = useRef<string | null>(null);
+    const sessionCompletedAt = useRef<string | null>(null);
+
+    // Prevent duplicate browser submissions for one completed session.
+    const submissionInProgress = useRef(false);
 
     // Current trial being displayed.
     const currentTrial = trials[currentTrialIndex];
@@ -115,6 +143,8 @@ export default function StroopGame() {
 
         setSessionMetrics(metrics);
         sessionValidated.current = true;
+        // Preserve one completion timestamp even if saving is retried.
+        sessionCompletedAt.current ??= new Date().toISOString();
 
         console.info("Stroop session metrics:", metrics);
 
@@ -287,6 +317,62 @@ export default function StroopGame() {
         };
     }, []);
 
+    const saveCompletedSession = useCallback(async () => {
+        const startedAt = sessionStartedAt.current;
+        const completedAt = sessionCompletedAt.current;
+
+        if (
+            !sessionValidated.current ||
+            !sessionMetrics ||
+            !startedAt ||
+            !completedAt ||
+            submissionInProgress.current
+        ) {
+            return;
+        }
+
+        submissionInProgress.current = true;
+        setSaveStatus("saving");
+        setSaveError(null);
+
+        try {
+            await submitStroopSession({
+                config: defaultStroopConfig,
+                startedAt,
+                completedAt,
+                metrics: sessionMetrics,
+                trials: trialResults,
+                gamePoints: score,
+            });
+
+            setSaveStatus("saved");
+        } catch (error) {
+            console.error(
+                "Unable to persist completed Stroop session:",
+                error
+            );
+
+            setSaveError(
+                error instanceof Error
+                    ? error.message
+                    : "Please try saving again."
+            );
+
+            setSaveStatus("error");
+            submissionInProgress.current = false;
+        }
+    }, [score, sessionMetrics, trialResults]);
+
+    useEffect(() => {
+        if (
+            phase === "results" &&
+            saveStatus === "idle" &&
+            sessionValidated.current
+        ) {
+            void saveCompletedSession();
+        }
+    }, [phase, saveCompletedSession, saveStatus]);
+
     function startGame() {
         // Cancel any pending feedback transition from a previous session.
         if (feedbackTimer.current !== null) {
@@ -309,6 +395,11 @@ export default function StroopGame() {
         setTrialResults([]);
         setSessionMetrics(null);
         sessionValidated.current = false;
+        sessionStartedAt.current = new Date().toISOString();
+        sessionCompletedAt.current = null;
+        submissionInProgress.current = false;
+        setSaveStatus("idle");
+        setSaveError(null);
 
         // Keep responses disabled until the first stimulus is ready.
         trialReady.current = false;
@@ -555,6 +646,13 @@ export default function StroopGame() {
                 <StroopResults
                     metrics={sessionMetrics}
                     score={score}
+                    saveStatus={saveStatus}
+                    saveError={saveError}
+                    onRetrySave={() => {
+                        if (saveStatus === "error") {
+                            void saveCompletedSession();
+                        }
+                    }}
                     onPlayAgain={startGame}
                 />
             )}
