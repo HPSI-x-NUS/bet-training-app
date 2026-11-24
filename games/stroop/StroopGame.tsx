@@ -17,6 +17,7 @@ import {
 import type {
     StroopTrialResult,
     SessionMetrics,
+    SessionQualityFlag,
 } from "../types";
 
 import {
@@ -79,6 +80,11 @@ export default function StroopGame() {
 
     const [saveError, setSaveError] =
         useState<string | null>(null);
+
+    // Quality notes come from the saved database session.
+    const [qualityFlags, setQualityFlags] = useState<
+        SessionQualityFlag[]
+    >([]);
 
     // Track reaction time without causing re-renders.
     const trialStartTime = useRef<number>(0);
@@ -341,7 +347,7 @@ export default function StroopGame() {
         setSaveError(null);
 
         try {
-            await submitStroopSession({
+            const savedSession = await submitStroopSession({
                 submissionKey,
                 config: defaultStroopConfig,
                 startedAt,
@@ -352,6 +358,7 @@ export default function StroopGame() {
             });
 
             setSaveStatus("saved");
+            setQualityFlags(savedSession.qualityFlags);
         } catch (error) {
             console.error(
                 "Unable to persist completed Stroop session:",
@@ -407,6 +414,7 @@ export default function StroopGame() {
         submissionInProgress.current = false;
         setSaveStatus("idle");
         setSaveError(null);
+        setQualityFlags([]);
 
         // Keep responses disabled until the first stimulus is ready.
         trialReady.current = false;
@@ -655,6 +663,7 @@ export default function StroopGame() {
                     score={score}
                     saveStatus={saveStatus}
                     saveError={saveError}
+                    qualityFlags={qualityFlags}
                     onRetrySave={() => {
                         if (saveStatus === "error") {
                             void saveCompletedSession();

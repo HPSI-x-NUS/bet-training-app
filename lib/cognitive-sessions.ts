@@ -1,6 +1,8 @@
 import { createClient } from "@/lib/supabase/client";
 import type {
   SessionMetrics,
+  SessionQualityFlag,
+  SessionQualityFlagCode,
   StroopConfig,
   StroopTrialResult,
 } from "@/games/types";
@@ -15,6 +17,40 @@ interface SubmitStroopSessionParams {
   gamePoints: number;
 }
 
+interface SavedStroopSession {
+  sessionId: string;
+  qualityFlags: SessionQualityFlag[];
+}
+
+function isQualityFlagCode(
+  value: unknown
+): value is SessionQualityFlagCode {
+  return (
+    value === "high_timeout_rate" ||
+    value === "low_correct_response_count" ||
+    value === "very_short_response" ||
+    value === "long_session_duration"
+  );
+}
+
+function parseQualityFlags(
+  value: unknown
+): SessionQualityFlag[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.flatMap((flag) => {
+    if (typeof flag !== "object" || flag === null) {
+      return [];
+    }
+
+    const code = (flag as { code?: unknown }).code;
+
+    return isQualityFlagCode(code) ? [{ code }] : [];
+  });
+}
+
 export async function submitStroopSession({
   submissionKey,
   config,
@@ -23,7 +59,7 @@ export async function submitStroopSession({
   metrics,
   trials,
   gamePoints,
-}: SubmitStroopSessionParams): Promise<string> {
+}: SubmitStroopSessionParams): Promise<SavedStroopSession> {
   const supabase = createClient();
 
   const { data, error } = await supabase.rpc(
@@ -54,5 +90,22 @@ export async function submitStroopSession({
     );
   }
 
-  return data;
+  const { data: session, error: sessionError } =
+    await supabase
+      .from("cognitive_game_sessions")
+      .select("quality_flags")
+      .eq("id", data)
+      .maybeSingle();
+
+  if (sessionError) {
+    console.warn(
+      "The session saved, but its quality flags could not be loaded:",
+      sessionError
+    );
+  }
+
+  return {
+    sessionId: data,
+    qualityFlags: parseQualityFlags(session?.quality_flags),
+  };
 }

@@ -11,20 +11,38 @@ import {
 
 import type { SessionMetrics } from "../types";
 
+import type { SessionQualityFlag } from "../types";
+
 interface StroopResultsProps {
     metrics: SessionMetrics;
     score: number;
     saveStatus: "idle" | "saving" | "saved" | "error";
     saveError: string | null;
+    qualityFlags: SessionQualityFlag[];
     onRetrySave: () => void;
     onPlayAgain: () => void;
 }
+
+const qualityFlagMessages: Record<
+    SessionQualityFlag["code"],
+    string
+> = {
+    high_timeout_rate:
+        "Many trials timed out. Interpret this session's accuracy with care.",
+    low_correct_response_count:
+        "There were few correct responses, so average reaction-time measures are based on limited data.",
+    very_short_response:
+        "One or more responses were extremely fast. This can reflect an accidental click or browser-timing limitation.",
+    long_session_duration:
+        "This session took longer than expected, which can happen if the browser was backgrounded or the session was interrupted.",
+};
 
 export default function StroopResults({
     metrics,
     score,
     saveStatus,
     saveError,
+    qualityFlags,
     onRetrySave,
     onPlayAgain,
 }: StroopResultsProps) {
@@ -143,6 +161,32 @@ export default function StroopResults({
                     for correct responses.
                 </p>
             </div>
+
+            {saveStatus === "saved" &&
+                qualityFlags.length > 0 && (
+                    <section
+                        aria-label="Data-quality notes"
+                        className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950"
+                    >
+                        <h2 className="font-semibold">
+                            Data-quality notes
+                        </h2>
+
+                        <ul className="mt-2 list-disc space-y-1 pl-5">
+                            {qualityFlags.map((flag) => (
+                                <li key={flag.code}>
+                                    {qualityFlagMessages[flag.code]}
+                                </li>
+                            ))}
+                        </ul>
+
+                        <p className="mt-3 text-xs text-amber-800">
+                            These notes provide context for approximate
+                            browser-based measures. They do not change your
+                            raw results, points, XP, streak, or daily goal.
+                        </p>
+                    </section>
+                )}
 
             <div
                 aria-live="polite"

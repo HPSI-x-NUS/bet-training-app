@@ -187,6 +187,16 @@ export interface SessionMetrics {
   additionalMetrics?: Record<string, number | null>;
 }
 
+export type SessionQualityFlagCode =
+  | "high_timeout_rate"
+  | "low_correct_response_count"
+  | "very_short_response"
+  | "long_session_duration";
+
+export interface SessionQualityFlag {
+  code: SessionQualityFlagCode;
+}
+
 // ============================================================
 // 7. Complete session result
 // ============================================================
