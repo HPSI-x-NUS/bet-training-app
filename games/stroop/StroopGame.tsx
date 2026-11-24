@@ -110,6 +110,9 @@ export default function StroopGame() {
     const sessionStartedAt = useRef<string | null>(null);
     const sessionCompletedAt = useRef<string | null>(null);
 
+    // A stable ID makes saving this one completed attempt safe to retry.
+    const sessionSubmissionKey = useRef<string | null>(null);
+
     // Prevent duplicate browser submissions for one completed session.
     const submissionInProgress = useRef(false);
 
@@ -320,12 +323,14 @@ export default function StroopGame() {
     const saveCompletedSession = useCallback(async () => {
         const startedAt = sessionStartedAt.current;
         const completedAt = sessionCompletedAt.current;
+        const submissionKey = sessionSubmissionKey.current;
 
         if (
             !sessionValidated.current ||
             !sessionMetrics ||
             !startedAt ||
             !completedAt ||
+            !submissionKey ||
             submissionInProgress.current
         ) {
             return;
@@ -337,6 +342,7 @@ export default function StroopGame() {
 
         try {
             await submitStroopSession({
+                submissionKey,
                 config: defaultStroopConfig,
                 startedAt,
                 completedAt,
@@ -396,6 +402,7 @@ export default function StroopGame() {
         setSessionMetrics(null);
         sessionValidated.current = false;
         sessionStartedAt.current = new Date().toISOString();
+        sessionSubmissionKey.current = crypto.randomUUID();
         sessionCompletedAt.current = null;
         submissionInProgress.current = false;
         setSaveStatus("idle");

@@ -6,6 +6,7 @@ import type {
 } from "@/games/types";
 
 interface SubmitStroopSessionParams {
+  submissionKey: string;
   config: StroopConfig;
   startedAt: string;
   completedAt: string;
@@ -15,6 +16,7 @@ interface SubmitStroopSessionParams {
 }
 
 export async function submitStroopSession({
+  submissionKey,
   config,
   startedAt,
   completedAt,
@@ -28,6 +30,7 @@ export async function submitStroopSession({
     "submit_stroop_session",
     {
       p_session: {
+        submissionKey,
         status: "completed",
         config,
         startedAt,
