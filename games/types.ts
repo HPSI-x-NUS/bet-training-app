@@ -29,13 +29,20 @@ export interface BaseGameConfig {
   // Increment when the scientific task protocol changes.
   configVersion: string;
 
-  // Number of trials planned for the session.
-  totalTrials: number;
-
   // Timing values are expressed in milliseconds.
   stimulusDurationMs: number;
   interTrialIntervalMs: number;
   responseWindowMs: number;
+}
+
+export interface FixedTrialGameConfig extends BaseGameConfig {
+  sessionMode: "fixed-trials";
+  totalTrials: number;
+}
+
+export interface FixedDurationGameConfig extends BaseGameConfig {
+  sessionMode: "fixed-duration";
+  sessionDurationMs: number;
 }
 
 // ============================================================
@@ -50,14 +57,14 @@ export type StroopColor =
   | "green"
   | "yellow";
 
-export interface StroopConfig extends BaseGameConfig {
+export interface StroopConfig extends FixedDurationGameConfig {
   gameId: "stroop";
   colors: StroopColor[];
   incongruentProportion: number;
   responseMapping: Record<StroopColor, string>;
 }
 
-export interface NBackConfig extends BaseGameConfig {
+export interface NBackConfig extends FixedTrialGameConfig {
   gameId: "n-back";
 
   // Example: 2 means a 2-back task.
@@ -67,14 +74,14 @@ export interface NBackConfig extends BaseGameConfig {
   stimulusSet: string[];
 }
 
-export interface FlankerConfig extends BaseGameConfig {
+export interface FlankerConfig extends FixedTrialGameConfig {
   gameId: "flanker";
   incongruentProportion: number;
 
   responseMapping: Record<ResponseKey, string>;
 }
 
-export interface GoNoGoConfig extends BaseGameConfig {
+export interface GoNoGoConfig extends FixedTrialGameConfig {
   gameId: "go-no-go";
 
   // Typically approximately 0.75.

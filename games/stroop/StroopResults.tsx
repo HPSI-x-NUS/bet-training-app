@@ -70,7 +70,7 @@ export default function StroopResults({
 
             <div className="rounded-2xl bg-blue-600 p-6 text-center text-white">
                 <p className="text-sm font-medium text-blue-100">
-                    Game Points Earned
+                    Session Score
                 </p>
 
                 <p className="mt-2 text-5xl font-extrabold">
@@ -79,6 +79,20 @@ export default function StroopResults({
 
                 <p className="mt-2 text-sm text-blue-100">
                     +10 points per correct response
+                </p>
+            </div>
+
+            <div className="rounded-2xl border border-violet-200 bg-violet-50 p-5 text-center">
+                <p className="text-sm font-medium text-violet-700">
+                    XP Earned
+                </p>
+
+                <p className="mt-1 text-3xl font-extrabold text-violet-950">
+                    +50 XP
+                </p>
+
+                <p className="mt-1 text-xs text-violet-700">
+                    Awarded for completing this training session
                 </p>
             </div>
 

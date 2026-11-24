@@ -25,22 +25,6 @@ function randomItem<T>(items: readonly T[]): T {
 }
 
 /**
- * Shuffle an array without modifying the original.
- * Uses the Fisher-Yates algorithm.
- */
-function shuffle<T>(items: readonly T[]): T[] {
-  const result = [...items];
-
-  for (let i = result.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-
-    [result[i], result[j]] = [result[j], result[i]];
-  }
-
-  return result;
-}
-
-/**
  * SESSION GENERATION STRATEGY
  *
  * CURRENT: Fixed-trial protocol
@@ -58,20 +42,12 @@ function shuffle<T>(items: readonly T[]): T[] {
  * ending condition so both modes can reuse the same
  * Stroop rules and response evaluation.
  */
-export function generateStroopTrials(
-  config: StroopConfig
-): StroopTrial[] {
+function validateConfig(config: StroopConfig) {
   const {
-    totalTrials,
     colors,
     incongruentProportion,
     responseMapping,
   } = config;
-
-  // Validate configuration before generating trials.
-  if (!Number.isInteger(totalTrials) || totalTrials <= 0) {
-    throw new Error("totalTrials must be a positive integer.");
-  }
 
   if (
     !Number.isFinite(incongruentProportion) ||
@@ -100,50 +76,57 @@ export function generateStroopTrials(
       );
     }
   }
+}
 
-  const incongruentCount = Math.round(
-    totalTrials * incongruentProportion
-  );
+/** Generate one trial for the timed protocol. */
+export function generateStroopTrial(
+  config: StroopConfig,
+  trialIndex: number
+): StroopTrial {
+  validateConfig(config);
 
-  const congruentCount = totalTrials - incongruentCount;
+  if (!Number.isInteger(trialIndex) || trialIndex < 0) {
+    throw new Error("trialIndex must be a non-negative integer.");
+  }
 
-  const trials: StroopTrial[] = [];
+  const { colors, incongruentProportion, responseMapping } = config;
+  const isIncongruent = Math.random() < incongruentProportion;
 
-  // Generate congruent trials.
-  for (let i = 0; i < congruentCount; i++) {
+  if (!isIncongruent) {
     const color = randomItem(colors);
-
-    trials.push({
-      trialIndex: 0,
+    return {
+      trialIndex,
       word: color,
       inkColor: color,
       congruency: "congruent",
       correctResponse: responseMapping[color],
-    });
+    };
   }
 
-  // Generate incongruent trials.
-  for (let i = 0; i < incongruentCount; i++) {
-    const inkColor = randomItem(colors);
+  const inkColor = randomItem(colors);
+  const word = randomItem(colors.filter((color) => color !== inkColor));
 
-    const possibleWords = colors.filter(
-      (color) => color !== inkColor
-    );
+  return {
+    trialIndex,
+    word,
+    inkColor,
+    congruency: "incongruent",
+    correctResponse: responseMapping[inkColor],
+  };
+}
 
-    const word = randomItem(possibleWords);
+/** Legacy helper retained for fixed-count protocol tests. */
+export function generateStroopTrials(
+  config: StroopConfig,
+  totalTrials: number
+): StroopTrial[] {
+  validateConfig(config);
 
-    trials.push({
-      trialIndex: 0,
-      word,
-      inkColor,
-      congruency: "incongruent",
-      correctResponse: responseMapping[inkColor],
-    });
+  if (!Number.isInteger(totalTrials) || totalTrials <= 0) {
+    throw new Error("totalTrials must be a positive integer.");
   }
 
-  // Randomize trial order and assign zero-based indices.
-  return shuffle(trials).map((trial, index) => ({
-    ...trial,
-    trialIndex: index,
-  }));
+  return Array.from({ length: totalTrials }, (_, index) =>
+    generateStroopTrial(config, index)
+  );
 }

@@ -10,7 +10,7 @@ import {
 
 import { defaultStroopConfig } from "./config";
 import {
-    generateStroopTrials,
+    generateStroopTrial,
     type StroopTrial,
 } from "./logic";
 
@@ -45,6 +45,14 @@ const colorStyles = {
     yellow: "#EAB308",
 };
 
+function formatCountdown(timeRemainingMs: number) {
+    const totalSeconds = Math.ceil(timeRemainingMs / 1000);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+
+    return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+}
+
 export default function StroopGame() {
     const [phase, setPhase] =
         useState<GamePhase>("instructions");
@@ -62,9 +70,6 @@ export default function StroopGame() {
     const [feedback, setFeedback] = useState<
         "correct" | "incorrect" | "timeout" | null
     >(null);
-
-    const [reactionTimes, setReactionTimes] =
-        useState<number[]>([]);
 
     // Store complete cognitive performance data for each trial.
     const [trialResults, setTrialResults] =
@@ -86,6 +91,10 @@ export default function StroopGame() {
         SessionQualityFlag[]
     >([]);
 
+    const [timeRemainingMs, setTimeRemainingMs] = useState(
+        defaultStroopConfig.sessionDurationMs
+    );
+
     // Track reaction time without causing re-renders.
     const trialStartTime = useRef<number>(0);
 
@@ -105,6 +114,8 @@ export default function StroopGame() {
 
     // Controls the delay between feedback and the next trial.
     const feedbackTimer = useRef<number | null>(null);
+    const sessionDeadlineMs = useRef<number | null>(null);
+    const countdownTimer = useRef<number | null>(null);
 
     // Reference the stimulus element for precise visibility control.
     const stimulusRef = useRef<HTMLParagraphElement | null>(null);
@@ -182,9 +193,10 @@ export default function StroopGame() {
 
             setFeedback(null);
 
-            if (currentTrialIndex + 1 < trials.length) {
-                setCurrentTrialIndex((previous) => previous + 1);
-            } else {
+            if (
+                sessionDeadlineMs.current !== null &&
+                performance.now() >= sessionDeadlineMs.current
+            ) {
                 // Only show completion after validating all trial results.
                 if (sessionValidated.current) {
                     setPhase("results");
@@ -194,6 +206,15 @@ export default function StroopGame() {
                     );
                     setPhase("instructions");
                 }
+            } else {
+                setTrials((previous) => [
+                    ...previous,
+                    generateStroopTrial(
+                        defaultStroopConfig,
+                        previous.length
+                    ),
+                ]);
+                setCurrentTrialIndex((previous) => previous + 1);
             }
         }, 500);
     }
@@ -237,6 +258,18 @@ export default function StroopGame() {
                 // Record approximate stimulus onset immediately after
                 // updating the element's visibility.
                 trialStartTime.current = performance.now();
+
+                if (sessionDeadlineMs.current === null) {
+                    sessionStartedAt.current = new Date().toISOString();
+                    sessionDeadlineMs.current =
+                        trialStartTime.current +
+                        defaultStroopConfig.sessionDurationMs;
+                    countdownTimer.current = window.setInterval(() => {
+                        const deadline = sessionDeadlineMs.current;
+                        if (deadline === null) return;
+                        setTimeRemainingMs(Math.max(0, deadline - performance.now()));
+                    }, 100);
+                }
 
                 // Allow responses for this trial.
                 responseLocked.current = false;
@@ -323,6 +356,9 @@ export default function StroopGame() {
             if (feedbackTimer.current !== null) {
                 window.clearTimeout(feedbackTimer.current);
             }
+            if (countdownTimer.current !== null) {
+                window.clearInterval(countdownTimer.current);
+            }
         };
     }, []);
 
@@ -393,9 +429,9 @@ export default function StroopGame() {
             feedbackTimer.current = null;
         }
 
-        // Generate a new randomized sequence of trials.
-        const generatedTrials =
-            generateStroopTrials(defaultStroopConfig);
+        const generatedTrials = [
+            generateStroopTrial(defaultStroopConfig, 0),
+        ];
 
         // Reset the game to the first trial.
         setTrials(generatedTrials);
@@ -404,11 +440,12 @@ export default function StroopGame() {
         // Reset scores and feedback.
         setScore(0);
         setFeedback(null);
-        setReactionTimes([]);
         setTrialResults([]);
         setSessionMetrics(null);
         sessionValidated.current = false;
-        sessionStartedAt.current = new Date().toISOString();
+        sessionStartedAt.current = null;
+        sessionDeadlineMs.current = null;
+        setTimeRemainingMs(defaultStroopConfig.sessionDurationMs);
         sessionSubmissionKey.current = crypto.randomUUID();
         sessionCompletedAt.current = null;
         submissionInProgress.current = false;
@@ -514,12 +551,6 @@ export default function StroopGame() {
             trialResult,
         ]);
 
-        // Record reaction time.
-        setReactionTimes((previous) => [
-            ...previous,
-            reactionTime,
-        ]);
-
         // Award points only for correct responses.
         if (isCorrect) {
             setScore((previous) => previous + 10);
@@ -563,9 +594,7 @@ export default function StroopGame() {
                     </div>
 
                     <p className="text-sm text-slate-500">
-                        {defaultStroopConfig.totalTrials} trials
-                        {" · "}
-                        Four colour buttons
+                        3-minute challenge · Four colour buttons
                     </p>
 
                     <button
@@ -586,7 +615,7 @@ export default function StroopGame() {
                         </h1>
 
                         <span className="text-sm text-slate-500">
-                            Trial {currentTrialIndex + 1} / {trials.length}
+                            Time {formatCountdown(timeRemainingMs)}
                         </span>
                     </div>
 
@@ -594,8 +623,7 @@ export default function StroopGame() {
                         <div
                             className="h-full bg-blue-600 transition-all"
                             style={{
-                                width: `${(currentTrialIndex / trials.length) * 100
-                                    }%`,
+                                width: `${((defaultStroopConfig.sessionDurationMs - timeRemainingMs) / defaultStroopConfig.sessionDurationMs) * 100}%`,
                             }}
                         />
                     </div>
@@ -646,7 +674,7 @@ export default function StroopGame() {
 
                         {feedback === "timeout" && (
                             <p className="font-semibold text-amber-600">
-                                Time's up! 0 points
+                                Time&apos;s up! 0 points
                             </p>
                         )}
                     </div>

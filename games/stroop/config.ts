@@ -10,7 +10,7 @@ import type { StroopConfig } from "../types";
 export const defaultStroopConfig: StroopConfig = {
   gameId: "stroop",
 
-  configVersion: "1.0.0",
+  configVersion: "2.0.0",
 
   /**
    * SESSION ENDING CONDITION
@@ -33,12 +33,9 @@ export const defaultStroopConfig: StroopConfig = {
    * for EACH trial, not the overall session duration.
    */
 
-  // Active configuration: fixed 40 trials.
-  totalTrials: 40,
-
-  // FUTURE CONFIGURATION (not implemented):
-  // sessionMode: "fixed-time",
-  // sessionDurationMs: 120000, // 2 minutes
+  // Fixed-duration protocol. Trials are generated as the session proceeds.
+  sessionMode: "fixed-duration",
+  sessionDurationMs: 180000,
 
   // How long the word remains visible.
   stimulusDurationMs: 1500,
