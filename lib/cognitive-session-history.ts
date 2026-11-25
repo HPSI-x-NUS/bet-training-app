@@ -1,3 +1,7 @@
+import type {
+  SessionQualityFlag,
+  SessionQualityFlagCode,
+} from "@/games/types";
 import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 
@@ -13,6 +17,7 @@ export interface StroopSessionHistoryItem {
   timeoutTrials: number | null;
   stroopInterferenceMs: number | null;
   gamePoints: number;
+  qualityFlags: SessionQualityFlag[];
 }
 
 type JsonRecord = Record<string, unknown>;
@@ -27,6 +32,35 @@ function getNumber(value: unknown): number | null {
     : null;
 }
 
+function isQualityFlagCode(
+  value: unknown
+): value is SessionQualityFlagCode {
+  return (
+    value === "high_timeout_rate" ||
+    value === "low_correct_response_count" ||
+    value === "very_short_response" ||
+    value === "long_session_duration"
+  );
+}
+
+function parseQualityFlags(
+  value: unknown
+): SessionQualityFlag[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.flatMap((flag) => {
+    if (!isJsonRecord(flag)) {
+      return [];
+    }
+
+    return isQualityFlagCode(flag.code)
+      ? [{ code: flag.code }]
+      : [];
+  });
+}
+
 export async function getStroopSessionHistory(): Promise<
   StroopSessionHistoryItem[]
 > {
@@ -36,7 +70,7 @@ export async function getStroopSessionHistory(): Promise<
   const { data, error } = await supabase
     .from("cognitive_game_sessions")
     .select(
-      "id, completed_at, config_version, config, metrics, game_points"
+      "id, completed_at, config_version, config, metrics, game_points, quality_flags"
     )
     .eq("athlete_id", user.id)
     .eq("game_id", "stroop")
@@ -81,6 +115,9 @@ export async function getStroopSessionHistory(): Promise<
           additionalMetrics.stroopInterferenceMs
         ),
         gamePoints: getNumber(session.game_points) ?? 0,
+        qualityFlags: parseQualityFlags(
+          session.quality_flags
+        ),
       };
     });
 }

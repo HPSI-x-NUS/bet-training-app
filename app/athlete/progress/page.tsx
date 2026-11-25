@@ -3,6 +3,7 @@ import {
   Clock3,
   Target,
   Timer,
+  TriangleAlert,
   Trophy,
 } from "lucide-react";
 
@@ -10,6 +11,8 @@ import {
   getStroopSessionHistory,
   type StroopSessionHistoryItem,
 } from "@/lib/cognitive-session-history";
+import type { SessionQualityFlag } from "@/games/types";
+import { getSessionQualityNote } from "@/lib/session-quality-notes";
 import {
   getStroopProtocolLabel,
   getTimedProtocolDurationLabel,
@@ -54,6 +57,55 @@ function SessionMetric({
   );
 }
 
+function SessionQualityNotes({
+  qualityFlags,
+}: {
+  qualityFlags: SessionQualityFlag[];
+}) {
+  if (qualityFlags.length === 0) {
+    return null;
+  }
+
+  return (
+    <section
+      aria-label="Data-quality notes"
+      className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950"
+    >
+      <div className="flex gap-3">
+        <TriangleAlert className="h-5 w-5 shrink-0 text-amber-700" />
+
+        <div>
+          <h2 className="font-semibold">
+            Data-quality notes
+          </h2>
+
+          <ul className="mt-2 space-y-3">
+            {qualityFlags.map((flag) => {
+              const note = getSessionQualityNote(flag.code);
+
+              return (
+                <li key={flag.code}>
+                  <p className="font-medium">{note.title}</p>
+
+                  <p className="mt-1 text-amber-900">
+                    {note.description}
+                  </p>
+                </li>
+              );
+            })}
+          </ul>
+
+          <p className="mt-3 text-xs text-amber-800">
+            These notes provide interpretation context only.
+            They do not change raw results, Session Score, XP,
+            streaks, or daily goals.
+          </p>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function StroopSessionCard({
   session,
 }: {
@@ -61,7 +113,7 @@ function StroopSessionCard({
 }) {
   const correctAnswers =
     session.correctTrials !== null &&
-    session.totalTrials !== null
+      session.totalTrials !== null
       ? `${session.correctTrials} / ${session.totalTrials}`
       : "N/A";
 
@@ -197,6 +249,10 @@ function StroopSessionCard({
           )}
         </span>
       </div>
+
+      <SessionQualityNotes
+        qualityFlags={session.qualityFlags}
+      />
     </article>
   );
 }
