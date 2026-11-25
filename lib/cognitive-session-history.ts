@@ -4,6 +4,8 @@ import { createClient } from "@/lib/supabase/server";
 export interface StroopSessionHistoryItem {
   id: string;
   completedAt: string;
+  configVersion: string | null;
+  config: unknown;
   totalTrials: number | null;
   correctTrials: number | null;
   accuracy: number | null;
@@ -19,9 +21,7 @@ function isJsonRecord(value: unknown): value is JsonRecord {
   return typeof value === "object" && value !== null;
 }
 
-function getNumber(
-  value: unknown
-): number | null {
+function getNumber(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value)
     ? value
     : null;
@@ -35,7 +35,9 @@ export async function getStroopSessionHistory(): Promise<
 
   const { data, error } = await supabase
     .from("cognitive_game_sessions")
-    .select("id, completed_at, metrics, game_points")
+    .select(
+      "id, completed_at, config_version, config, metrics, game_points"
+    )
     .eq("athlete_id", user.id)
     .eq("game_id", "stroop")
     .eq("status", "completed")
@@ -64,6 +66,8 @@ export async function getStroopSessionHistory(): Promise<
       return {
         id: session.id,
         completedAt: session.completed_at,
+        configVersion: session.config_version,
+        config: session.config,
         totalTrials: getNumber(metrics.totalTrials),
         correctTrials: getNumber(metrics.correctTrials),
         accuracy: getNumber(metrics.accuracy),
@@ -76,8 +80,7 @@ export async function getStroopSessionHistory(): Promise<
         stroopInterferenceMs: getNumber(
           additionalMetrics.stroopInterferenceMs
         ),
-        gamePoints:
-          getNumber(session.game_points) ?? 0,
+        gamePoints: getNumber(session.game_points) ?? 0,
       };
     });
 }

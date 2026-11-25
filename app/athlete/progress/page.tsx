@@ -10,6 +10,11 @@ import {
   getStroopSessionHistory,
   type StroopSessionHistoryItem,
 } from "@/lib/cognitive-session-history";
+import {
+  getStroopProtocolLabel,
+  getTimedProtocolDurationLabel,
+  isTimedStroopProtocol,
+} from "@/lib/stroop-session-history-formatters";
 
 function formatDateTime(value: string) {
   return new Intl.DateTimeFormat("en-SG", {
@@ -19,16 +24,11 @@ function formatDateTime(value: string) {
   }).format(new Date(value));
 }
 
-
-function formatPercentage(
-  value: number | null
-) {
+function formatPercentage(value: number | null) {
   return value === null ? "N/A" : `${value.toFixed(1)}%`;
 }
 
-function formatMilliseconds(
-  value: number | null
-) {
+function formatMilliseconds(value: number | null) {
   return value === null
     ? "N/A"
     : `${Math.round(value)} ms`;
@@ -65,11 +65,24 @@ function StroopSessionCard({
       ? `${session.correctTrials} / ${session.totalTrials}`
       : "N/A";
 
+  const protocolLabel = getStroopProtocolLabel(
+    session.configVersion
+  );
+
+  const isTimedProtocol = isTimedStroopProtocol(
+    session.configVersion
+  );
+
+  const durationLabel = getTimedProtocolDurationLabel(
+    session.configVersion,
+    session.config
+  );
+
   return (
     <article className="rounded-2xl border bg-white p-5 shadow-sm">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-bold text-blue-700">
               STROOP
             </span>
@@ -79,7 +92,11 @@ function StroopSessionCard({
             </span>
           </div>
 
-          <p className="mt-3 flex items-center gap-2 text-sm text-slate-500">
+          <p className="mt-3 text-base font-bold text-slate-900">
+            {protocolLabel}
+          </p>
+
+          <p className="mt-2 flex items-center gap-2 text-sm text-slate-500">
             <Clock3 className="h-4 w-4" />
             {formatDateTime(session.completedAt)}
           </p>
@@ -87,7 +104,7 @@ function StroopSessionCard({
 
         <div className="rounded-xl bg-blue-600 px-4 py-3 text-center text-white">
           <p className="text-xs font-medium text-blue-100">
-            Game Points
+            Session Score
           </p>
 
           <p className="mt-1 text-2xl font-extrabold">
@@ -96,33 +113,76 @@ function StroopSessionCard({
         </div>
       </div>
 
-      <div className="mt-5 grid grid-cols-2 gap-4 border-t pt-5 sm:grid-cols-4">
-        <SessionMetric
-          label="Accuracy"
-          value={formatPercentage(session.accuracy)}
-        />
+      <section
+        aria-label="Session context"
+        className="mt-5 rounded-xl bg-slate-50 p-4"
+      >
+        <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+          Session context
+        </p>
 
-        <SessionMetric
-          label="Average RT"
-          value={formatMilliseconds(
-            session.meanReactionTimeMs
+        <div className="mt-3 grid gap-4 sm:grid-cols-2">
+          <SessionMetric
+            label="Protocol"
+            value={protocolLabel}
+          />
+
+          {durationLabel !== null && (
+            <SessionMetric
+              label="Session duration"
+              value={durationLabel}
+            />
           )}
-        />
 
-        <SessionMetric
-          label="Correct"
-          value={correctAnswers}
-        />
+          {isTimedProtocol && (
+            <SessionMetric
+              label="Completed trials"
+              value={
+                session.totalTrials === null
+                  ? "N/A"
+                  : String(session.totalTrials)
+              }
+            />
+          )}
+        </div>
+      </section>
 
-        <SessionMetric
-          label="Timeouts"
-          value={
-            session.timeoutTrials === null
-              ? "N/A"
-              : String(session.timeoutTrials)
-          }
-        />
-      </div>
+      <section
+        aria-label="Cognitive performance"
+        className="mt-5 border-t pt-5"
+      >
+        <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+          Cognitive performance
+        </p>
+
+        <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
+          <SessionMetric
+            label="Accuracy"
+            value={formatPercentage(session.accuracy)}
+          />
+
+          <SessionMetric
+            label="Average RT"
+            value={formatMilliseconds(
+              session.meanReactionTimeMs
+            )}
+          />
+
+          <SessionMetric
+            label="Correct"
+            value={correctAnswers}
+          />
+
+          <SessionMetric
+            label="Timeouts"
+            value={
+              session.timeoutTrials === null
+                ? "N/A"
+                : String(session.timeoutTrials)
+            }
+          />
+        </div>
+      </section>
 
       <div className="mt-5 flex items-center gap-2 rounded-xl bg-slate-50 px-4 py-3 text-sm">
         <Timer className="h-4 w-4 text-purple-600" />
@@ -193,6 +253,12 @@ export default async function ProgressPage() {
             </p>
           </div>
 
+          <div className="rounded-xl border border-blue-100 bg-blue-50 p-4 text-sm text-blue-900">
+            Sessions are shown in their recorded protocols.
+            Cognitive results are not compared or ranked across
+            protocol versions.
+          </div>
+
           {sessions.map((session) => (
             <StroopSessionCard
               key={session.id}
@@ -200,9 +266,9 @@ export default async function ProgressPage() {
             />
           ))}
 
-          <div className="rounded-xl border border-blue-100 bg-blue-50 p-4 text-sm text-blue-900">
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
             <div className="flex gap-3">
-              <Trophy className="h-5 w-5 shrink-0" />
+              <Trophy className="h-5 w-5 shrink-0 text-purple-600" />
 
               <p>
                 Reaction-time values are approximate
