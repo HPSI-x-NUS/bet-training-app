@@ -35,8 +35,8 @@ export const gameRegistry = {
     description:
       "Train working memory by remembering and comparing sequences of stimuli.",
     category: "Working Memory",
-    durationMinutes: 4,
-    available: false,
+    durationMinutes: 3,
+    available: true,
   },
   flanker: {
     id: "flanker",

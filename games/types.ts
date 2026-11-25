@@ -57,6 +57,17 @@ export type StroopColor =
   | "green"
   | "yellow";
 
+export type NBackPosition =
+  | "top-left"
+  | "top-centre"
+  | "top-right"
+  | "middle-left"
+  | "centre"
+  | "middle-right"
+  | "bottom-left"
+  | "bottom-centre"
+  | "bottom-right";
+
 export interface StroopConfig extends FixedDurationGameConfig {
   gameId: "stroop";
   colors: StroopColor[];
@@ -64,14 +75,17 @@ export interface StroopConfig extends FixedDurationGameConfig {
   responseMapping: Record<StroopColor, string>;
 }
 
-export interface NBackConfig extends FixedTrialGameConfig {
+export interface NBackConfig extends FixedDurationGameConfig {
   gameId: "n-back";
 
   // Example: 2 means a 2-back task.
   nLevel: number;
 
   targetProportion: number;
-  stimulusSet: string[];
+  stimulusSet: NBackPosition[];
+
+  feedbackCorrectMs: number;
+  feedbackIncorrectMs: number;
 }
 
 export interface FlankerConfig extends FixedTrialGameConfig {
@@ -135,7 +149,8 @@ export interface StroopTrialResult extends BaseTrialResult {
 export interface NBackTrialResult extends BaseTrialResult {
   gameId: "n-back";
 
-  stimulus: string;
+  stimulus: NBackPosition;
+  comparisonStimulus: NBackPosition | null;
   isTarget: boolean;
 
   // Useful for distinguishing hits, misses,

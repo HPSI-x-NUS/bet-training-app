@@ -8,7 +8,9 @@
     "test:history-formatters": "tsx lib/test-stroop-session-history-formatters.ts",
     "test:quality-notes": "tsx lib/test-session-quality-notes.ts",
     "test:session-trends": "tsx lib/test-stroop-session-trends.ts",
-    "test:session-history": "tsx lib/test-cognitive-session-history.ts"
+    "test:session-history": "tsx lib/test-cognitive-session-history.ts",
+    "test:nback-logic": "tsx games/n-back/test-logic.ts",
+    "test:nback-statistics": "tsx games/n-back/test-statistics.ts"
   },
   "dependencies": {
     "@radix-ui/react-checkbox": "^1.3.1",
