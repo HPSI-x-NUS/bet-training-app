@@ -15,6 +15,7 @@ function makeSession(
 ): StroopSessionHistoryItem {
     return {
         id: "session",
+        gameId: "stroop",
         completedAt: "2026-11-20T10:00:00+08:00",
         configVersion: "2.0.0",
         config: {},
