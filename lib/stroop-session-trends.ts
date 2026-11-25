@@ -25,11 +25,57 @@ export interface StroopTrendSummary {
   tone: "good" | "bad" | "neutral";
 }
 
+export interface StroopTrendTimelineLabel {
+  id: string;
+  graphLabel: string;
+  tableLabel: string;
+}
+
 function getMetricValue(
   session: StroopSessionHistoryItem,
   metric: StroopTrendMetric
 ) {
   return session[metric];
+}
+
+function getSingaporeDayKey(value: string) {
+  const parts = new Intl.DateTimeFormat("en-SG", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    timeZone: "Asia/Singapore",
+  }).formatToParts(new Date(value));
+
+  const getPart = (type: string) =>
+    parts.find((part) => part.type === type)?.value ?? "";
+
+  return `${getPart("year")}-${getPart("month")}-${getPart("day")}`;
+}
+
+function formatGraphDate(value: string) {
+  return new Intl.DateTimeFormat("en-SG", {
+    day: "numeric",
+    month: "short",
+    timeZone: "Asia/Singapore",
+  }).format(new Date(value));
+}
+
+function formatGraphDateTime(value: string) {
+  return new Intl.DateTimeFormat("en-SG", {
+    day: "numeric",
+    month: "short",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: "Asia/Singapore",
+  }).format(new Date(value));
+}
+
+function formatTableDateTime(value: string) {
+  return new Intl.DateTimeFormat("en-SG", {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: "Asia/Singapore",
+  }).format(new Date(value));
 }
 
 export function filterStroopSessions(
@@ -114,4 +160,32 @@ export function getStroopTrendSummary(
           ? "good"
           : "bad",
   };
+}
+
+export function getStroopTrendTimelineLabels(
+  points: StroopTrendPoint[]
+): StroopTrendTimelineLabel[] {
+  const sessionsPerDay = new Map<string, number>();
+
+  points.forEach((point) => {
+    const dayKey = getSingaporeDayKey(point.completedAt);
+
+    sessionsPerDay.set(
+      dayKey,
+      (sessionsPerDay.get(dayKey) ?? 0) + 1
+    );
+  });
+
+  return points.map((point) => {
+    const dayKey = getSingaporeDayKey(point.completedAt);
+    const showTime = (sessionsPerDay.get(dayKey) ?? 0) > 1;
+
+    return {
+      id: point.id,
+      graphLabel: showTime
+        ? formatGraphDateTime(point.completedAt)
+        : formatGraphDate(point.completedAt),
+      tableLabel: formatTableDateTime(point.completedAt),
+    };
+  });
 }

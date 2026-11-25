@@ -19,6 +19,7 @@ import {
     filterStroopSessions,
     getStroopTrendPoints,
     getStroopTrendSummary,
+    getStroopTrendTimelineLabels,
     type StroopProtocolFilter,
     type StroopTrendMetric,
 } from "@/lib/stroop-session-trends";
@@ -309,6 +310,13 @@ function TrendGraph({
 
     const summary = getStroopTrendSummary(metric, points);
 
+    const timelineLabels = new Map(
+        getStroopTrendTimelineLabels(points).map((label) => [
+            label.id,
+            label,
+        ])
+    );
+
     const hasQualityFlaggedPoints = points.some(
         (point) => point.hasQualityFlags
     );
@@ -381,6 +389,10 @@ function TrendGraph({
                     {trendMetricLabels[metric]} · {protocolLabel}
                 </p>
             </div>
+
+            <p className="mt-2 text-sm text-slate-500">
+                Showing the latest 10 saved sessions for this protocol.
+            </p>
 
             <div className="mt-5 overflow-x-auto">
                 <svg
@@ -477,7 +489,8 @@ function TrendGraph({
                                 textAnchor="middle"
                                 className="fill-slate-500 text-xs"
                             >
-                                {formatShortDate(point.completedAt)}
+                                {timelineLabels.get(point.id)?.graphLabel ??
+                                    formatShortDate(point.completedAt)}
                             </text>
                         </g>
                     ))}
@@ -524,7 +537,8 @@ function TrendGraph({
                                 className="border-b last:border-0"
                             >
                                 <td className="px-3 py-2">
-                                    {formatShortDate(point.completedAt)}
+                                    {timelineLabels.get(point.id)?.tableLabel ??
+                                        formatDateTime(point.completedAt)}
                                 </td>
 
                                 <td className="px-3 py-2 font-medium">
@@ -657,7 +671,7 @@ export function ProgressExplorer({
 
             <div className="flex items-center justify-between gap-4">
                 <h2 className="text-xl font-bold text-slate-900">
-                    Recent Stroop Sessions
+                    Recent Training Sessions
                 </h2>
 
                 <p className="text-sm text-slate-500">
