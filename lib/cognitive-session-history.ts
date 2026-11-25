@@ -36,6 +36,7 @@ export interface StroopSessionHistoryItem
   timeoutTrials: number | null;
   stroopInterferenceMs: number | null;
 }
+export interface NBackSessionHistoryItem extends CognitiveSessionHistoryContext { gameId: "n-back"; totalTrials: number | null; accuracy: number | null; meanReactionTimeMs: number | null; hits: number | null; targetTrials: number | null; falseAlarms: number | null; hitRate: number | null; falseAlarmRate: number | null; dPrime: number | null; }
 
 type JsonRecord = Record<string, unknown>;
 
@@ -159,6 +160,7 @@ export function toStroopSessionHistoryItem(
     ),
   };
 }
+export function toNBackSessionHistoryItem(session: CognitiveSessionHistoryRow): NBackSessionHistoryItem | null { const context = getCognitiveSessionHistoryContext(session); if (context?.gameId !== "n-back") return null; const metrics = isJsonRecord(session.metrics) ? session.metrics : {}; const additional = isJsonRecord(metrics.additionalMetrics) ? metrics.additionalMetrics : {}; return { ...context, gameId: "n-back", totalTrials: getNumber(metrics.totalTrials), accuracy: getNumber(metrics.accuracy), meanReactionTimeMs: getNumber(metrics.meanReactionTimeMs), hits: getNumber(additional.hits), targetTrials: getNumber(additional.targetTrials), falseAlarms: getNumber(additional.falseAlarms), hitRate: getNumber(additional.hitRate), falseAlarmRate: getNumber(additional.falseAlarmRate), dPrime: getNumber(additional.dPrime) }; }
 
 /**
  * Shared database boundary for per-game history adapters.
@@ -201,3 +203,4 @@ export async function getStroopSessionHistory(): Promise<
     return historyItem === null ? [] : [historyItem];
   });
 }
+export async function getNBackSessionHistory(): Promise<NBackSessionHistoryItem[]> { const sessions = await getCompletedCognitiveSessionRows("n-back"); return sessions.flatMap((session) => { const item = toNBackSessionHistoryItem(session); return item === null ? [] : [item]; }); }

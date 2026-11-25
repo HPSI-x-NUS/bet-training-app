@@ -1,11 +1,10 @@
-import {
-  EmptyProgressState,
-  ProgressExplorer,
-} from "@/components/athlete/progress-explorer";
-import { getStroopSessionHistory } from "@/lib/cognitive-session-history";
+import { EmptyProgressState } from "@/components/athlete/progress-explorer";
+import { MultiTaskProgress } from "@/components/athlete/multi-task-progress";
+import { getNBackSessionHistory, getStroopSessionHistory } from "@/lib/cognitive-session-history";
 
 export default async function ProgressPage() {
-  const sessions = await getStroopSessionHistory();
+  const [stroopSessions, nBackSessions] = await Promise.all([getStroopSessionHistory(), getNBackSessionHistory()]);
+  const hasSessions = stroopSessions.length > 0 || nBackSessions.length > 0;
 
   return (
     <section className="mx-auto max-w-5xl p-6 md:p-10">
@@ -23,10 +22,10 @@ export default async function ProgressPage() {
         </p>
       </div>
 
-      {sessions.length === 0 ? (
+      {!hasSessions ? (
         <EmptyProgressState />
       ) : (
-        <ProgressExplorer sessions={sessions} />
+        <MultiTaskProgress stroopSessions={stroopSessions} nBackSessions={nBackSessions} />
       )}
     </section>
   );

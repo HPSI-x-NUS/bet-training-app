@@ -1,0 +1,25 @@
+"use client";
+
+import { useState } from "react";
+import { Timer } from "lucide-react";
+
+import { TaskProgressFramework } from "./task-progress-framework";
+import type { NBackSessionHistoryItem, StroopSessionHistoryItem } from "@/lib/cognitive-session-history";
+import { getStroopProtocolLabel, getTimedProtocolDurationLabel, isTimedStroopProtocol } from "@/lib/stroop-session-history-formatters";
+
+const formatNumber = (value: number | null, digits = 1) => value === null ? "N/A" : value.toFixed(digits);
+const formatMilliseconds = (value: number | null) => value === null ? "N/A" : `${Math.round(value)} ms`;
+
+function StroopContext({ session }: { session: StroopSessionHistoryItem }) {
+  const protocolLabel = getStroopProtocolLabel(session.configVersion);
+  const durationLabel = getTimedProtocolDurationLabel(session.configVersion, session.config);
+  return <section className="mt-5 rounded-xl bg-slate-50 p-4" aria-label="Session context"><p className="text-xs font-medium uppercase tracking-wide text-slate-500">Session context</p><div className="mt-3 grid gap-4 sm:grid-cols-2"><div><p className="text-xs font-medium uppercase text-slate-500">Protocol</p><p className="mt-1 font-bold">{protocolLabel}</p></div>{durationLabel && <div><p className="text-xs font-medium uppercase text-slate-500">Session duration</p><p className="mt-1 font-bold">{durationLabel}</p></div>}{isTimedStroopProtocol(session.configVersion) && <div><p className="text-xs font-medium uppercase text-slate-500">Completed trials</p><p className="mt-1 font-bold">{session.totalTrials ?? "N/A"}</p></div>}</div></section>;
+}
+
+export function MultiTaskProgress({ stroopSessions, nBackSessions }: { stroopSessions: StroopSessionHistoryItem[]; nBackSessions: NBackSessionHistoryItem[] }) {
+  const available = [stroopSessions.length > 0 && "stroop", nBackSessions.length > 0 && "n-back"].filter(Boolean) as ("stroop" | "n-back")[];
+  const [task, setTask] = useState(available[0]);
+  return <div className="space-y-5"><div><p className="text-xs font-medium uppercase tracking-wide text-slate-500">Cognitive task</p><div className="mt-2 flex gap-2">{available.map((id) => <button key={id} type="button" aria-pressed={task === id} onClick={() => setTask(id)} className={task === id ? "rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white" : "rounded-full border px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"}>{id === "stroop" ? "Stroop" : "N-Back"}</button>)}</div></div>
+    {task === "stroop" ? <TaskProgressFramework taskLabel="Stroop" trendProtocolLabel="3-minute timed Stroop" sessions={stroopSessions} isTrendEligible={(session) => session.configVersion === "2.0.0"} getSessionProtocolLabel={(session) => getStroopProtocolLabel(session.configVersion)} renderSessionContext={(session) => <StroopContext session={session} />} trendMetrics={[{ id: "accuracy", label: "Accuracy", value: (session) => session.accuracy, format: (value) => `${value.toFixed(1)}%`, favourable: "higher" }, { id: "meanReactionTimeMs", label: "Average RT", value: (session) => session.meanReactionTimeMs, format: (value) => `${Math.round(value)} ms`, favourable: "lower" }, { id: "stroopInterferenceMs", label: "Stroop interference", value: (session) => session.stroopInterferenceMs, format: (value) => `${Math.round(value)} ms`, favourable: "lower" }]} cardMetrics={[{ label: "Accuracy", value: (session) => `${formatNumber(session.accuracy)}%` }, { label: "Average RT", value: (session) => formatMilliseconds(session.meanReactionTimeMs) }, { label: "Correct", value: (session) => session.correctTrials !== null && session.totalTrials !== null ? `${session.correctTrials} / ${session.totalTrials}` : "N/A" }, { label: "Timeouts", value: (session) => String(session.timeoutTrials ?? "N/A") }]} footer={<div className="flex gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700"><Timer className="h-5 w-5 shrink-0 text-purple-600" /><p>Reaction-time values are approximate browser-based measurements. Stroop interference is the average correct incongruent reaction time minus the average correct congruent reaction time.</p></div>} /> : <TaskProgressFramework taskLabel="N-Back" trendProtocolLabel="3-minute timed 2-back" sessions={nBackSessions} getSessionProtocolLabel={() => "3-minute timed 2-back"} trendMetrics={[{ id: "accuracy", label: "Accuracy", value: (session) => session.accuracy, format: (value) => `${value.toFixed(1)}%`, favourable: "higher" }, { id: "dPrime", label: "d-prime", value: (session) => session.dPrime, format: (value) => value.toFixed(2), favourable: "higher" }, { id: "falseAlarmRate", label: "False-alarm rate", value: (session) => session.falseAlarmRate, format: (value) => `${(value * 100).toFixed(1)}%`, favourable: "lower" }]} cardMetrics={[{ label: "Accuracy", value: (session) => `${formatNumber(session.accuracy)}%` }, { label: "Hits", value: (session) => `${session.hits ?? "N/A"} / ${session.targetTrials ?? "N/A"}` }, { label: "False alarms", value: (session) => String(session.falseAlarms ?? "N/A") }, { label: "d-prime", value: (session) => formatNumber(session.dPrime, 2) }]} />}
+  </div>;
+}
